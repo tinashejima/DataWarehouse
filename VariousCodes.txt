@@ -1,0 +1,12 @@
+j## Hive database link
+dbc:hive2://197.221.242.150:10348/default
+
+
+
+##sql query for creating a user
+CREATE USER 'tynash'@'localhost' identified by 'tynash';
+
+grant all privileges on *.* to 'tynash'@'localhost';
+
+flush privileges;
+

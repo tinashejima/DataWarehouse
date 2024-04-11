@@ -1,0 +1,171 @@
+View 1
+===========================================
+
+CREATE OR REPLACE VIEW Patient_flat AS
+SELECT P.id AS pat_id, P.active, PN.family, PNG AS given, P.gender,
+  P.deceased.Boolean AS deceased,
+  YEAR(current_date()) - YEAR(P.birthDate) AS age,
+  PA.country, PG.practitionerId AS practitioner_id,
+  P.managingOrganization.organizationId AS organization_id
+FROM Patient AS P LATERAL VIEW OUTER explode(name) AS PN
+  LATERAL VIEW OUTER explode(PN.given) AS PNG
+  LATERAL VIEW OUTER explode(P.address) AS PA
+  LATERAL VIEW OUTER explode(P.generalPractitioner) AS PG
+;
+
+
+
+View 2 
+=============================================
+CREATE OR REPLACE VIEW Condition_flat_nyasha AS
+SELECT C.id AS cond_id, C.subject.patientId AS patient_id,
+  C.encounter.encounterId AS encounter_id, CCC.system, CCC.code,
+  CClC.code AS clinical_status, CVC.code AS verification_status,
+  C.onset.DateTime AS onset_datetime, C.recordedDate as recorded_date
+FROM Condition AS C LATERAL VIEW OUTER explode(C.code.coding) AS CCC
+  LATERAL VIEW OUTER explode(C.category) AS CCat
+  LATERAL VIEW OUTER explode(CCat.coding) AS CCatC
+  LATERAL VIEW OUTER explode(C.clinicalStatus.coding) AS CClC
+  LATERAL VIEW OUTER explode(C.verificationStatus.coding) AS CVC
+;
+
+Select query for STI patients
+===============================================
+
+select cf.patient_id, cf.code, cf.recorded_date, pf.birthDate, pf.gender, floor(datediff(cf.recorded_date, pf.birthDate)/365) as age
+from patient_flat_2 pf, condition_flat_nyasha cf where pf.pat_id=cf.patient_id and cf.system='urn:impilo:id' 
+and cf.code in ('AAO1', 'PH213' 'PH026', 'N739', 'PH004');
+
+
+view 4
+==========================================
+
+CREATE OR REPLACE VIEW Condition_flat_STI AS
+select cf.patient_id, cf.code,month(cf.recorded_date) as recorded_date_month, year(cf.recorded_date) as recorded_date_year, cf.recorded_date, pf.birthDate, pf.gender, 
+floor(datediff(cf.recorded_date, pf.birthDate)/365) as age_at_diagnosis
+from patient_flat_2 pf, condition_flat_nyasha cf where pf.pat_id=cf.patient_id and cf.system='urn:impilo:id' 
+and cf.code in ('AAO1', 'PH213' 'PH026', 'N739', 'PH004');
+
+
+
+
+===============================================
+
+Select count(distinct(patient_id)) from condition_flat_sti where age_at_diagnosis>=10 and age_at_diagnosis<=24 and code='PH004' and gender='female'
+and recorded_date_year=2023 and recorded_date_month=7;
+
+
+
+
+===================================
+
+CREATE OR REPLACE VIEW Specimen_flat AS
+SELECT S.id AS specimen_id, S.status, S.language,
+S.collection.collected.dateTime, S.collection.duration, 
+S.collection.quantity, S.collection.method, 
+S.collection.bodySite, S.subject.patientId, S.subject.locationId, S.subject.substanceId,
+STC.system, STC.code AS sampleCode,
+ STC.display AS sampletype, SI.value AS
+lab_request_num FROM specimen AS S
+LATERAL VIEW OUTER explode(S.type.coding) AS STC
+LATERAL VIEW OUTER explode(S.identifier) AS SI;
+
+
+
+===============================================
+CREATE OR REPLACE  VIEW Servicerequest_flat AS
+ select ST.id as service_requestId, ST.language, STI.system, STI.value AS labreqnum,
+ ST.status, ST.intent, STCOC.code AS category_code, STCOC.display AS category, 
+ STCC.code , STCC.display as service, STOC.code as orderdetail_code, 
+ STOC.display  AS orderdetail, ST.quantity.quantity.value as quantity, ST.subject.patientId,
+ ST.encounter.encounterId, ST.occurrence.dateTime as date, ST.authoredOn,
+  ST.requester.organizationId AS requester_organization,
+ STPC.code as performerTypecode, STPC.display as perfomerType, 
+ STLC.code as locationCode, STLC.display AS location,
+ STRC.code AS reasoncode, STRC.display AS reason , STS. specimenId,
+ STBC.code as bodysitecode,   STBC.display as body_site, ST.patientInstruction                                                                          
+ FROM servicerequest AS ST
+ LATERAL VIEW OUTER explode(ST.identifier) AS STI
+ lATERAL VIEW OUTER explode(ST.category) AS STC
+ lATERAL VIEW OUTER explode(STC.coding) AS STCOC
+ LATERAL VIEW OUTER explode(ST.code.coding) AS STCC
+ lATERAL VIEW OUTER explode(ST.orderDetail) AS STO
+ LATERAL VIEW OUTER explode(STO.coding) AS STOC
+ LATERAL VIEW OUTER explode(ST.performerType.coding) AS STPC
+ LATERAL VIEW OUTER explode(ST.locationCode) AS STL
+ LATERAL VIEW OUTER explode(STL.coding) AS STLC
+ LATERAL VIEW OUTER explode(ST.reasonCode) AS STR
+ LATERAL VIEW OUTER explode(STR.coding) AS STRC
+ LATERAL VIEW OUTER explode(ST.specimen) AS STS
+ LATERAL VIEW OUTER explode(ST.bodysite) AS STB
+ LATERAL VIEW OUTER explode(STB.coding) AS STBC;
+
+
+===================================================
+ CREATE OR REPLACE VIEW episodeofcare_flat as 
+Select E.id, E.language, E.status, EH.id AS statusHistory_Id, ETC.code AS typecode,
+E.diagnosis.id as diagnosis_id, E.patient.patientId, E.managingOrganization.organizationId, E.period.start as start_date,
+E.period.end as end_date, ER.servicerequestid
+From episodeofcare as E
+LATERAL VIEW OUTER explode(E.statusHistory) AS EH
+LATERAL VIEW OUTER explode(E.type) AS ET
+LATERAL VIEW OUTER explode(ET.coding) AS ETC
+LATERAL VIEW OUTER explode(E.referralRequest) AS ER;
+
+
+
+====================================================
+CREATE OR REPLACE VIEW task_flat as 
+select T.id as task_id, T.language, 
+TI.period as period, TI.value  as  labrequestno, TB.resourceId as basednresourceId,
+TB.reference as basedOn, TB.type as basedOntype, T.status, T.intent, T.priority, T.for.reference as for,
+T.encounter.encounterId as encounterId, T.executionPeriod.start as executionStartDate, T.executionPeriod.end as executionEndDate,
+T.authoredOn, T.lastModified, T.location.locationId as locationId,  TIN.id as inputId, TINC.system as system, TINC.code as inputTypeCode,
+TINC.display as inputType, TO.id as outputId From task as T
+LATERAL VIEW OUTER explode(T.identifier) AS TI
+LATERAL VIEW OUTER explode(T.basedOn) AS TB
+LATERAL VIEW OUTER explode(T.input) AS TIN
+LATERAL VIEW OUTER explode(TIN.type.coding) AS TINC
+LATERAL VIEW OUTER explode(T.output) AS TO;
+
+
+===========================================================
+
+
+=============Mini-hie github link===============
+
+git clone https://github.com/mohcc/mini-hie
+
+
+
+================== Restore databases ===========
+docker exec -i pipeline-impilo-mysql mysql -u root --password=""  <database path and name>
+
+
+=============================================
+
+
+select count(*) from consultation.person_diagnosis where diagnosis_id in  ('AAO1', 'PH213' 'PH026', 'N739', 'PH004');
+
+select count(*) from client.person;
+
+select * from consultation.person_diagnosis;
+
+describe consultation.person_diagnosis;
+
+select diagnosis_id, diagnosis from consultation.person_diagnosis;
+
+
+===================EMPTY DATABASE====================================
+docker exec -it pipeline-impilo-mysql mysql;
+drop database mrs;
+drop database terminology;
+drop database provider;
+drop database consultation;
+drop database client;
+drop database facility;
+drop database report;
+drop database deduplication;
+create database mrs;
+create database report;
+select 1;
