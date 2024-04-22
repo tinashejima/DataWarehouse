@@ -141,6 +141,9 @@ git clone https://github.com/mohcc/mini-hie
 ================== Restore databases ===========
 docker exec -i pipeline-impilo-mysql mysql -u root --password=""  <database path and name>
 
+======================EXAMPLE=======================
+docker exec -i ihe-impilo-mysql mysql < /home/tynash/ZimTTECH/q1/epworthpoly020124.sql
+
 
 =============================================
 
