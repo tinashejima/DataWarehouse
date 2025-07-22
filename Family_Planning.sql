@@ -1,7 +1,5 @@
 
-
-
-
+create view report.family_planning_dpl_test as
 
 with base as (select
                   fper.patient_family_planning_enrollment_id,
@@ -24,22 +22,23 @@ with base as (select
               from report.family_planning_enrollment_register fper
               left join report.person_demographic pd
                on fper.person_id = pd.person_id
-              join report.patient_register pr
+              left join report.patient_register pr
               on fper.patient_id = pr.patient_id
               ),
 
-     fp_care_plan as (select fcp.family_planning_client_status as client_status,
+     prev_method as (     SELECT fcp.family_planning_enrollment_id,
+                               COALESCE(prev.short_term_method, prev.long_term_method, prev.permanent_method) AS previous_method
+                              FROM report.family_planning_care_plan_register fcp
+                            LEFT JOIN report.family_planning_care_plan_register prev
+                            ON prev.family_planning_enrollment_id = fcp.family_planning_enrollment_id
+                            AND prev.care_plan_number = fcp.care_plan_number - 1
+                             WHERE fcp.care_plan_number > 1
+
+
+     ),
+     fp_care_plan as (select fcp.family_planning_client_status as client_status, fcp.bmi as vital_observations_bmi  ,
                              fcp.family_planning_enrollment_id, fcp.patient_id, fcp.family_planning_removal_reason,
-                             fcp.permanent_method,
-                             CASE
-                                 WHEN fcp.care_plan_number > 1 THEN
-                                     CASE
-                                         WHEN fcp.short_term_method IS NOT NULL THEN fcp.short_term_method
-                                         WHEN fcp.long_term_method IS NOT NULL THEN fcp.long_term_method
-                                         WHEN fcp.permanent_method IS NOT NULL THEN fcp.permanent_method
-                                         END
-                                 ELSE NULL
-                                 END                           AS previous_method,
+
 
                              CASE
                                  WHEN fcp.method_switch = 'PERMANENT' OR fcp.method_switch = 'LARC' THEN 'Yes'
@@ -87,7 +86,6 @@ with base as (select
                                 CASE
                                    WHEN fcp.permanent_method = 'VASECTOMY' THEN 'V' ELSE NULL END AS vasectomy
 
-
                       from report.family_planning_care_plan_register fcp
 
                       ),
@@ -127,6 +125,7 @@ with base as (select
                       on cd.prescription_id = cp.prescription_id
 
                       where cp.prescription_id IS NOT NULL and medicine_id IN ('C001', 'C002', 'ADN123', 'G03AC06')
+                      and short_term_method IN ('COC', 'POP', 'INTRA_MUSCULAR' )
                                ),
 
      larc as (select er.patient_id,
@@ -172,6 +171,7 @@ with base as (select
                   on er.patient_family_planning_enrollment_id = fpcr.family_planning_enrollment_id
                   left join consultation.person_procedure cpp
                   on er.person_id = cpp.person_id
+                  where long_term_method IN ('IUCD', 'JADELLE', 'IMPLANON' )
                   ),
 
      hts_screening as (select fpr.patient_id,
@@ -181,7 +181,9 @@ with base as (select
 
                           from report.family_planning_enrollment_register fpr
                           left join consultation.hts hts
-                          on fpr.patient_id = hts.patient_id ),
+                          on fpr.patient_id = hts.patient_id
+
+                          ),
 
      investigations as (select pi.person_id,
                             CASE
@@ -193,10 +195,43 @@ with base as (select
                             CASE
                                 WHEN pi.test = 'Pap Smear' THEN 'Yes' ELSE NULL END AS pap_smear
 
+
                             from report.family_planning_enrollment_register fe
                             left join consultation.person_investigation pi
                             on fe.person_id = pi.person_id
-                            where pi.test in ('VIAC', 'Pap Smear', 'Syphilis' ,'Syphilis Test'))
+                            where pi.test in ('VIAC', 'Pap Smear', 'Syphilis' ,'Syphilis Test', 'HIV')
+
+                            ),
+
+     hiv_cl_status as (select  f.person_id,
+                           CASE
+                                WHEN pi.test = 'HIV' AND result = 'POSITIVE' OR result = 'Positive' THEN 'Positive'
+
+                                WHEN pi.test = 'HIV' AND result = 'NEGATIVE' OR result = 'Negative' THEN 'Negative'
+
+                                ELSE 'unknown'
+                            END AS hiv_client_status
+
+                        from report.family_planning_enrollment_register f
+                            left join consultation.person_investigation pi
+                            on f.person_id = pi.person_id
+                            where pi.test in ('HIV')
+   ),
+
+     fp_linkage as ( select er.patient_id,
+
+                            CASE
+                                WHEN pl.destination = 'LOCAL' THEN 'Yes' ELSE NULL END AS referral_In,
+
+                           CASE
+                                WHEN pl.destination = 'EXTERNAL' THEN 'Yes' ELSE NULL END AS referral_Out
+
+
+
+                       from report.family_planning_enrollment_register er
+                       left join consultation.patient_linkage pl
+                       on er.patient_id = pl.patient_id
+                         )
 
 
 select  base.patient_family_planning_enrollment_id, base.person_id, base.patient_id, sex, marital_status, age,
@@ -210,38 +245,66 @@ select  base.patient_family_planning_enrollment_id, base.person_id, base.patient
 
         event_date,
         enrollment_date, reason_for_fp, gravida, parity, facility_id, vital_observations_bp,
-        vital_observations_weight, updated_at, fp_care_plan.client_status,
+        vital_observations_weight, vital_observations_bmi, hiv_client_status, fp_care_plan.client_status,
         previous_method, client_switch_to_PM_or_LARC, client_switch_to_short_term_method,
         emergency_contraception,coc_new_user_cycles, coc_repeat_user_cycles, pop_new_user_cycles,
         pop_repeat_user_cycles, injectable_DMPA_Intra_Muscular_New_User, injectable_DMPA_Intra_Muscular_Repeat_User,
         iucd_new_user_insertion, iucd_repeat_user_insertion, jadelle_new_user_insertion, jadelle_repeat_user_insertion,
         jadelle_removal, implanon_new_user_insertion, implanon_repeat_user_insertion, implanon_removal,
         planning_pregnacy,side_effects, adverse_event, method_failure, partner_refusal, product_expired,
-        tubal_ligation, vasectomy, hts, sti_screening, viac, pap_smear
+        tubal_ligation, vasectomy, hts, sti_screening, viac, pap_smear, referral_In, referral_Out, updated_at
 
 
 from base
 left join fp_care_plan on base.patient_family_planning_enrollment_id = fp_care_plan.family_planning_enrollment_id
+left join prev_method on base.patient_family_planning_enrollment_id = prev_method.family_planning_enrollment_id
 left join short_method_qty on base.patient_id = short_method_qty.patient_id
-left join larc on base.person_id = base.person_id
+left join larc on base.person_id = larc.person_id
 left join hts_screening on base.patient_id = hts_screening.patient_id
 left join investigations on base.person_id = investigations.person_id
+left join hiv_cl_status on base.person_id = hiv_cl_status.person_id
+left join fp_linkage on base.patient_id = fp_linkage.patient_id
+
+group by base.patient_family_planning_enrollment_id, base.person_id, base.patient_id, sex, marital_status, age,
+          event_date,
+        enrollment_date, reason_for_fp, gravida, parity, facility_id, vital_observations_bp,
+        vital_observations_weight, vital_observations_bmi, hiv_client_status, fp_care_plan.client_status,
+        previous_method, client_switch_to_PM_or_LARC, client_switch_to_short_term_method,
+        emergency_contraception,coc_new_user_cycles, coc_repeat_user_cycles, pop_new_user_cycles,
+        pop_repeat_user_cycles, injectable_DMPA_Intra_Muscular_New_User, injectable_DMPA_Intra_Muscular_Repeat_User,
+        iucd_new_user_insertion, iucd_repeat_user_insertion, jadelle_new_user_insertion, jadelle_repeat_user_insertion,
+        jadelle_removal, implanon_new_user_insertion, implanon_repeat_user_insertion, implanon_removal,
+        planning_pregnacy,side_effects, adverse_event, method_failure, partner_refusal, product_expired,
+        tubal_ligation, vasectomy, hts, sti_screening, viac, pap_smear, referral_In, referral_Out,updated_at
 
 
--- ============================================================================================================
+
+-- =====================================================================================================================
 
 
+select * from report.family_planning_dpl_test
+where facility_id= 'ZW090A17' and  event_date >= '2025-01-01'
+
+--===========================================
+
+select facility_id, event_date, count (distinct person_id)
+from report.family_planning_dpl_test
+
+where  facility_id= 'ZW090A17' and  event_date >=  '2025-01-01'
+
+group by facility_id, event_date, person_id
+order by event_date
+
+--=============================================================================================================================
+
+select  count(distinct person_id)
+from report.family_planning_dpl_test
+
+where  facility_id= 'ZW090A17' and  event_date >= '2025-01-01'
 
 
+--======================================================================================================================
 
-SELECT fpcr.short_term_method
-FROM report.family_planning_care_plan_register fpcr
-WHERE fpcr.care_plan_number = (
-    SELECT MAX(fpc_inner.care_plan_number)
-    FROM report.family_planning_care_plan_register fpc_inner
-    WHERE fpc_inner.family_planning_enrollment_id = :enrollment_id
-    AND fpc_inner.care_plan_number < :current_care_plan_number
-)
 
 
 
@@ -303,9 +366,43 @@ on er.person_id = pp.person_id
 
 select * from consultation.person_investigation pi
 
+         where person_id = '000633f5-263c-4741-9301-3bf7b6c7d1a0'
+
 where pi.test IN ('VIAC', 'Pap Smear', 'Syphilis' ,'Syphilis Test')
 
 
 select distinct test from consultation.person_investigation pi
 
 select * from report.investigation_register limit 500
+
+
+
+
+
+
+--===============================================================
+
+SELECT
+    fcp.*,
+    COALESCE(prev.short_term_method, prev.long_term_method, prev.permanent_method) AS previous_method
+FROM report.family_planning_care_plan_register fcp
+LEFT JOIN report.family_planning_care_plan_register prev
+    ON prev.family_planning_enrollment_id = fcp.family_planning_enrollment_id
+    AND prev.care_plan_number = fcp.care_plan_number - 1
+WHERE fcp.care_plan_number > 1
+
+--==================================================================================================================
+
+select pl.patient_id, er.patient_id
+
+    from report.family_planning_enrollment_register er
+left join consultation.patient_linkage pl
+on er.patient_id = pl.patient_id
+
+--============================================================================================================
+
+select fpr.patient_id,
+       hts.patient_id
+         from report.family_planning_enrollment_register fpr
+        left join consultation.hts hts
+        on fpr.patient_id = hts.patient_id

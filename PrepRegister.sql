@@ -267,7 +267,7 @@ order by initial_visit_date
 select  count(distinct person_id)
 from report.prep_dpl
 
-where  tenant_id= 'ZW040189' and   initial_visit_date between  '2025-01-01' and '2025-05-19'
+where  facility_id= 'ZW040189' and   initial_visit_date between  '2025-01-01' and '2025-05-19'
 
 --====================================================================================================================================================================
 
