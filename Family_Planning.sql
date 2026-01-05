@@ -1,5 +1,5 @@
 
-create view report.family_planning_dpl_test as
+create view report.family_planning_dpl as
 
 with base as (select
                   fper.patient_family_planning_enrollment_id,
@@ -204,6 +204,7 @@ with base as (select
                             ),
 
      hiv_cl_status as (select  f.person_id,
+                               ROW_NUMBER() OVER (PARTITION BY f.person_id ORDER BY pi.date DESC) AS rn,
                            CASE
                                 WHEN pi.test = 'HIV' AND result = 'POSITIVE' OR result = 'Positive' THEN 'Positive'
 
@@ -234,7 +235,7 @@ with base as (select
                          )
 
 
-select  base.patient_family_planning_enrollment_id, base.person_id, base.patient_id, sex, marital_status, age,
+select  base.patient_family_planning_enrollment_id as encounter_id, base.person_id, base.patient_id, sex, marital_status, age,
         CASE
             WHEN age < 15 THEN '14 & below'
             WHEN age >= 15 AND age <= 19 THEN '15 - 19'
@@ -262,7 +263,7 @@ left join short_method_qty on base.patient_id = short_method_qty.patient_id
 left join larc on base.person_id = larc.person_id
 left join hts_screening on base.patient_id = hts_screening.patient_id
 left join investigations on base.person_id = investigations.person_id
-left join hiv_cl_status on base.person_id = hiv_cl_status.person_id
+left join hiv_cl_status on base.person_id = hiv_cl_status.person_id and rn = 1
 left join fp_linkage on base.patient_id = fp_linkage.patient_id
 
 group by base.patient_family_planning_enrollment_id, base.person_id, base.patient_id, sex, marital_status, age,
@@ -280,7 +281,38 @@ group by base.patient_family_planning_enrollment_id, base.person_id, base.patien
 
 
 -- =====================================================================================================================
+---validation
 
+select
+                  fper.patient_family_planning_enrollment_id,
+                  fper.person_id,
+                  fper.patient_id,
+                  pd.sex,
+                  pd.marital as marital_status,
+                  fper.enrollment_date as event_date,
+                  fper.enrollment_date,
+                  fper.family_planning_reason as reason_for_fp,
+                  fper.gravida,
+                  fper.parity,
+                  fper.tenant_id as facility_id,
+                  pr.blood_pressure as vital_observations_bp,
+                  pr.weight as vital_observations_weight,
+                  date_part('year', age(fper.enrollment_date, pd.birthdate)) as age,
+                  fper.updated_at
+
+
+              from report.family_planning_enrollment_register fper
+              left join report.person_demographic pd
+               on fper.person_id = pd.person_id
+              left join report.patient_register pr
+              on fper.patient_id = pr.patient_id
+where pd.tenant_id = 'ZW000A01' and enrollment_date >= '2025-04-30' and enrollment_date <= '2025-07-30'
+
+
+
+select * from client.person where person_id = 'b7535ea3-7a6f-49dc-ad22-7f77fa0abd9b'
+
+ select * from report.family_planning_dpl limit 500
 
 select * from report.family_planning_dpl_test
 where facility_id= 'ZW090A17' and  event_date >= '2025-01-01'
@@ -288,12 +320,33 @@ where facility_id= 'ZW090A17' and  event_date >= '2025-01-01'
 --===========================================
 
 select facility_id, event_date, count (distinct person_id)
-from report.family_planning_dpl_test
+from report.family_planning_dpl
 
-where  facility_id= 'ZW090A17' and  event_date >=  '2025-01-01'
+where  facility_id= 'ZW000A01' and  event_date >=  '2025-04-01' and event_date <= '2025-04-30'
 
 group by facility_id, event_date, person_id
 order by event_date
+
+
+select * from report.family_planning_enrollment_register limit 500
+
+------------------------------------------------------------------------------------------------------------------------------
+
+select *
+from report.family_planning_dpl
+where  facility_id= 'ZW000A01' and  event_date >=  '2025-04-01' and event_date <= '2025-07-31'
+
+
+
+
+select * from consultation.person_investigation
+where person_id = '22360644-d9c4-40aa-b44e-7f1e5687e564'
+
+
+select *
+from report.family_planning_report
+where  tenant_id= 'ZW000A01' and  visit_date between '2025-05-01' and '2025-07-31' -- and visit_date <= '2025-04-01'
+
 
 --=============================================================================================================================
 
@@ -308,6 +361,9 @@ where  facility_id= 'ZW090A17' and  event_date >= '2025-01-01'
 
 
 
+'8a2a064c-7d0b-4663-871f-a5289e0bcf4b',
+'37ec0ba5-1283-4856-9ff9-4e04b6d57a94',
+'c2dc5426-4ec7-41a5-8b04-9020ade452f0'
 
 
 
@@ -406,3 +462,32 @@ select fpr.patient_id,
          from report.family_planning_enrollment_register fpr
         left join consultation.hts hts
         on fpr.patient_id = hts.patient_id
+
+
+
+WITH RankedResults AS (
+    SELECT
+        f.person_id,
+        pi.result,
+        pi.test, pi.date, pi.sample,
+        ROW_NUMBER() OVER (PARTITION BY f.person_id ORDER BY pi.date DESC) AS rn
+    FROM
+        report.family_planning_enrollment_register f
+    LEFT JOIN
+        consultation.person_investigation pi ON f.person_id = pi.person_id
+    WHERE
+        pi.test = 'HIV'
+        AND pi.result IS NOT NULL
+)
+
+SELECT
+    person_id,date, result, sample,
+    CASE
+        WHEN result = 'POSITIVE' OR result = 'Positive' THEN 'Positive'
+        WHEN result = 'NEGATIVE' OR result = 'Negative' THEN 'Negative'
+        ELSE 'unknown'
+    END AS hiv_client_status
+FROM
+    RankedResults
+WHERE
+    rn = 1;

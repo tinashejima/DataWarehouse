@@ -66,7 +66,7 @@ where rir.investigation_type = 'PREGNANCY'
 create view report.prep_dpl as
 
 
-with base as (select distinct rpr.prep_id, rpr.prep_number,
+with base as (select distinct rpr.prep_id , rpr.prep_number,
                         rpr.withdrawal_date as date_of_client_opt_out_or_clinician_withdrawal,
                         rpr.withdrawal_reason as reason_for_opt_out_or_withdrawal,
                         rpr.person_id, rpr.date as initial_visit_date,
@@ -109,7 +109,7 @@ with base as (select distinct rpr.prep_id, rpr.prep_number,
                             rpd.birthdate
              from report.person_demographic  rpd),
 
-    follow_up_visit as (select rpfv.prep_followup_visit_id as encounter_id,
+    follow_up_visit as (select rpfv.prep_followup_visit_id,
                                rpfv.patient_id, rpfv.date as follow_up_visit_date,
                                rpfv.hiv_test_result as follow_up_hiv_test_result,
                                rpfv.visit_status as follow_up_visit_status,
@@ -157,7 +157,7 @@ with base as (select distinct rpr.prep_id, rpr.prep_number,
 
 
 
-select distinct base.prep_id as prep_id,
+select distinct base.prep_id as encounter_id,
                 base.patient_id,base.person_id,base.facility_id, base.prep_number, base.event_date,
        base.initial_visit_date, initiation.prep_initiation_consent_id as prep_initiation_consent_id,
        CASE
@@ -181,7 +181,6 @@ select distinct base.prep_id as prep_id,
        hts.hiv_test_result,
         demographics.sex,
        date_part('year', age(base.initial_visit_date,demographics.birthdate)) AS age_at_visit,
-           follow_up_visit.encounter_id,
            case when investigation.investigation_type = 'PREGNANCY' then investigation.pregnacy_results else null end as pregnacy_results,
            prep_risk.risk_assessment,
        prep_risk.creatinine_clearance,
@@ -232,7 +231,6 @@ group by
        hts.hiv_test_result,
        demographics.sex,
        demographics.birthdate,
-       follow_up_visit.encounter_id,
           pregnacy_results,
            prep_risk.risk_assessment,
        prep_risk.creatinine_clearance,
@@ -280,6 +278,11 @@ where person_id = '6901b431-308b-4991-9863-414c9c9259ca'
 
 select  * from client.person
 where person_id = '660a7d03-124b-45fe-a31a-e17be067b978'
+
+  select * from report.prep_followup_visit_register limit 500
+
+
+  select * from report.prep_register limit 5
 
 
 
@@ -332,8 +335,7 @@ LEFT JOIN report.prep_register  rpi
 ON rpr.patient_id = rpi.patient_id
 
 --========================================================================================
-select * from report.hts_register
-where person_id = '105af4f3-9ccd-4e4d-b8b3-61bde1368221'
+
 
 
 --==================================================================================================

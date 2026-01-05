@@ -1,4 +1,4 @@
-create view report.T5_family_planning_report as
+create view report.t5_family_planning_report as
 
 WITH base as (
     select fer.patient_family_planning_enrollment_id, fer.patient_id, fer.person_id,
@@ -14,7 +14,7 @@ WITH base as (
     from report.family_planning_care_plan_register cpr
 ),
      dispense_prescription as (
-    select distinct d.patient_id, p.medicine_id, p.drug_route
+    select d.patient_id, p.medicine_id, p.drug_route
     from report.dispense_report d
     left join consultation.prescription p
     on d.patient_id = p.patient_id
@@ -23,18 +23,18 @@ WITH base as (
                           'G03AC03','G03AA07', 'C001', 'G02BA01', 'G02BA02', 'G02BA03')
 ),
      person_procedure as (
-    select distinct person_id, procedure_id
+    select  person_id, procedure_id
     from consultation.person_procedure
     where procedure_id in ('65', '64')
 ),
     sundries as (
-    select distinct patient_id, sundry_code
+    select  patient_id, sundry_code
     from report.sundry_issued_register
     where sundry_code ILIKE ANY (ARRAY['%05/4405D%', '%10/1440D%', '%10/4111D%', '%10/4112D%', '%05/4405P%', '%10/4111P%',
                                       '%05/4408D%', '%10/1439D%', '%05/4408P%'])
 ),
     all_conditions as (
-    SELECT DISTINCT
+    SELECT
         base.patient_id,event_date,visit_date,
          UNNEST(ARRAY[
             -- First Time User
@@ -105,7 +105,7 @@ WITH base as (
 )
 
 SELECT
-    patient_id,family_planning_method,client_status,age_group, facility_id,event_date,visit_date,
+   distinct patient_id,family_planning_method,client_status,age_group, facility_id,event_date,visit_date,
     COUNT(*) AS count
 FROM all_conditions
 WHERE family_planning_method IS NOT NULL
@@ -114,14 +114,27 @@ GROUP BY
 
 --===================================================================================================================
 
-select * from consultation.prescription
-where medicine_id in ('G02BA01', 'G02BA02', 'G02BA03')
---===============================================================================================================
 
+---validation----------------------------------------------------------------------------------------------------------
+select count(distinct patient_id) as count, patient_id, family_planning_method, facility_id, event_date
+from report.T5_family_planning_report
+group by patient_id, family_planning_method, facility_id, event_date
+-----------------------------------------------------------------------------------------------------------------------
+
+select distinct count(patient_id)
+    from report.T5_family_planning_report
+--===============================================================================================================
+drop view report.T5_family_planning_report;
 
 --==========================================================================================
 
-
+  select distinct fer.patient_id, fer.patient_family_planning_enrollment_id, fer.person_id,
+           client_type, pd.sex, fer.tenant_id as facility_id, fer.enrollment_date as visit_date,
+           fer.enrollment_date as event_date,
+           date_part('year', age(fer.enrollment_date, pd.birthdate)) as age
+    FROM report.family_planning_enrollment_register fer
+    left join report.person_demographic pd
+    on fer.person_id = pd.person_id
 
 
 
@@ -267,12 +280,13 @@ ORDER BY
     client_status;
 
 --=================================================================================
-     select  d.patient_id, p.medicine_id, p.drug_route
+   select distinct d.patient_id, p.medicine_id, p.drug_route, er.enrollment_date, er.tenant_id as facility_id
     from report.dispense_report d
     left join consultation.prescription p
     on d.patient_id = p.patient_id
-    where p.medicine_id in ('C001')
-
+    left join report.family_planning_enrollment_register er
+    on d.patient_id = er.patient_id
+    where p.medicine_id in ('C002', 'ADN123', 'G03AC')
 --=====================================================================================================================================================================
 select  * from report.family_planning_enrollment_register fp
  select * from report.patient_register pr
@@ -346,4 +360,12 @@ select * from report.dispense_report limit 200
 select count(distinct patient_id)
 from report.t5_family_planning_report
 
-drop view report.T5_family_planning_report
+
+select * from consultation.laboratory_request_order
+
+
+--=================================================================================
+
+SELECT schema_name
+FROM information_schema.schemata
+WHERE schema_name = 'consultation';

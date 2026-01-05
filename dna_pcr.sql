@@ -1,7 +1,7 @@
 
 create view report.site_pcr_dpl as
 
-with base as (select ir.patient_id,
+with base as (select ir.patient_id as encounter_id,
                      pd.person_id,
                      pd.tenant_id as facility_id,
                      pd.birthdate,
@@ -60,7 +60,7 @@ GROUP BY
     lovr.investigation_order_id, lro.laboratory_request_number, lro.investigation_register_laboratory_investigation_id)
 
 
-select distinct base.laboratory_investigation_id, base.patient_id, base.person_id , base.facility_id, birthdate, date, event_date, age_at_visit,
+select distinct base.laboratory_investigation_id, base.patient_id, base.person_id , base.facility_id, birthdate,sex, date, event_date, age_at_visit,
          age_years,age_months, age_days, lab_request.patient_laboratory_request_number,
          lab_request.testing_platform,  base.date_specimen_collected,
          coalesce(sample_type_whole_blood_or_dry_blood_spot, 'Blood') as sample_type_whole_blood_or_dry_blood_spot,
@@ -178,7 +178,7 @@ from base
 left join hts on base.laboratory_investigation_id = hts.laboratory_investigation_id
 left join lab_request on base.laboratory_investigation_id = lab_request.investigation_register_laboratory_investigation_id
 
-group by base.laboratory_investigation_id, base.patient_id, base.person_id, birthdate, date, event_date, patient_laboratory_request_number,testing_platform,sample_type_whole_blood_or_dry_blood_spot,
+group by base.laboratory_investigation_id, base.patient_id, base.person_id, birthdate, sex, date, event_date, patient_laboratory_request_number,testing_platform,sample_type_whole_blood_or_dry_blood_spot,
          date_specimen_collected, facility_id, age_at_visit, age_years,age_months, age_days,
          less_or_equal_to_72_hours_initial, less_or_equal_to_72_hours_retest,
          seventy_three_hours_to_two_months_initial, seventy_three_hours_to_two_months_retest,
@@ -192,6 +192,33 @@ group by base.laboratory_investigation_id, base.patient_id, base.person_id, birt
 
 --==========================================================================================================================
 --validation
+select ir.patient_id,
+                     pd.person_id,
+                     pd.tenant_id as facility_id,
+                     pd.birthdate,
+                     pd.sex,
+                     pd.firstname, pd.lastname,
+                     date_part('year', age(ir.date,pd.birthdate)) AS age_at_visit,
+                     date_part('year', age(ir.date, pd.birthdate)) AS age_years,
+                     -- Total months from birth to event date
+                     date_part('year', age(ir.date, pd.birthdate)) * 12 + date_part('month', age(ir.date, pd.birthdate)) AS age_months,
+                     -- Total days from birth to event date
+                     (ir.date - pd.birthdate) AS age_days,
+                     ir.laboratory_investigation_id,
+                     ir.date,
+                     ir.date as event_date,
+                     ir.result,
+                     ir.result_date as date_result_received_from_site,
+                     ir.date as date_specimen_collected,
+                     ir.updated_at
+       from report.investigation_register ir
+       left join report.person_demographic pd
+       on ir.person_id = pd.person_id
+where ir.tenant_id = 'ZW000A23' and ir.date >= '2025-04-01' and ir.date <= '2025-04-30'
+
+
+
+
 
 select  count(distinct laboratory_investigation_id)
 from report.site_pcr_dpl
@@ -201,7 +228,7 @@ where  facility_id= 'ZW000B03' and  event_date >= '2025-01-01' and event_date <=
 
 select  *
 from report.site_pcr_dpl
-where  facility_id= 'ZW000B03' and  event_date >= '2025-01-01' and event_date <= '2025-06-30'
+where  facility_id= 'ZW000A23' and  event_date >= '2025-04-01' and event_date <= '2025-04-30'
 
 
 select  *
@@ -209,10 +236,14 @@ from report.site_pcr_dpl
 where  facility_id= 'ZW080726' and  event_date >= '2025-01-01' and event_date <= '2025-06-30'
 
 
+
+select * from report.site_pcr_dpl
+    where patient_laboratory_request_number = '00-0A-23-2025-L-04840'
 --==========================================================================================================================
 
 drop view report.site_pcr_dpl
 
+drop view report.site_pcr_dpl_added_sex
 
 
 select  count(person_id)
@@ -246,12 +277,12 @@ where laboratory_investigation_id = '4bf41614-70b6-4121-8ad5-4722fc6b0eea'
 --================================================================
 
 select * from report.laboratory_request_order_register
-where tenant_id = 'ZW000B03'
+where laboratory_request_number = '00-0A-23-2025-L-04840'
 
 
 --=========================================================
  select * from report.laboratory_request_order_register
-where tenant_id = 'ZW000B03'
+where laboratory_request_number = 'Blessing'
 
 
 --==========================================================
@@ -261,7 +292,8 @@ where tenant_id = 'ZW000B03'
 
 --=====================================================================================================
 
-select * from report.site_pcr_dpl limit 200
+select * from client.person
+where person_id = 'c8507fb3-7bf1-4f7b-9433-4f68fd74a7a9'
 
 
 --======================================================================================================
