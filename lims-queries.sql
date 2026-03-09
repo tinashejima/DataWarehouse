@@ -1076,3 +1076,55 @@ where encounter_facility_id in('ZW090A17', 'ZW090A02', 'ZW090A12', 'ZW090A14', '
 and cast(task_authored_on as date) >=  '2025-11-03'
 and lab = 'MPILO' and test_type like '%Viral Load%'
 
+
+----------------------------------------------------------------------------------------------------------------------
+
+
+select * from fact_lab_request_orders WHERE
+    encounter_facility_id in
+    ('ZW090A17','ZW090A02','ZW090A12','ZW090A14','ZW090A66','ZW090A07','ZW06050A','ZW060627',
+     'ZW070445','ZW050406','ZW080582','ZW080583','ZW030339','ZW030332','ZW03030A')
+                                              and cast(task_authored_on as date) between '2025-02-18'  and '2026-01-14'
+                                              AND test_type = 'Viral Load'
+                                              AND sample_type = 'Blood'
+----------------------------------------------------------------------------------------------------------------------
+
+ -- Turnaround time
+     SELECT lab_request_number, date_sample_taken, task_execution_start_date as impilo_registration_date,
+          task_authored_on AS shr_date, diagnostic_report_date_issued, test_type, task_status, encounter_facility_id,
+          datediff(cast(task_authored_on as date), cast(task_execution_start_date as date))  as turn_around_time_in_days,
+       ROUND(
+               (UNIX_TIMESTAMP(task_authored_on, "yyyy-MM-dd'T'HH:mm:ssXXX") -
+                UNIX_TIMESTAMP(task_execution_start_date, "yyyy-MM-dd'T'HH:mm:ssXXX")) / 3600
+       ) AS turn_around_time_in_hours
+   FROM fact_lab_request_orders
+   WHERE
+      CAST(task_authored_on AS DATE) >= '2025-02-18' AND encounter_facility_id = 'ZW090A17'
+     AND lab = 'MPILO'
+     AND test_type LIKE '%Viral Load%' order by task_authored_on desc
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+select * from fact_lab_request_orders
+        where task_status = 'completed' and task_authored_on >= '2025-02-18'
+-------------------------------------------------------------------------------------------------------------------
+
+Select * from fact_lab_request_orders
+where encounter_facility_id = 'ZW090A17' and cast(task_authored_on as date) >= '2025-01-01' and  cast(task_authored_on as date) < '2026-01-01'  and test_type like '%Viral Load%'
+    and task_status = 'completed'
+
+-------------------------------------------------------------------------------------
+
+create or replace view fact_lab_request_order_time as
+SELECT task_id, date_sample_taken as impilo_date_time_sample_taken_UTC  ,from_utc_timestamp(date_sample_taken, 'UTC+02:00') as impilo_date_time_sample_taken_CAT
+    ,task_execution_start_date as impilo_registration_date_time_UTC , from_utc_timestamp(task_execution_start_date, 'UTC+02:00') as impilo_registration_date_time_CAT, task_authored_on as shr_date_time_UTC, from_utc_timestamp(task_authored_on, 'UTC+02:00') as shr_date_time_CAT,
+         cast(date_sample_taken as date) as impilo_date_sample_taken, cast(task_execution_start_date as date) as impilo_registration_date, cast(task_authored_on as date) as shr_date,
+       datediff(cast(task_authored_on as date), cast(task_execution_start_date as date))  as turn_around_time_in_days,
+       ROUND(
+               (UNIX_TIMESTAMP(task_authored_on, "yyyy-MM-dd'T'HH:mm:ssXXX") -
+                UNIX_TIMESTAMP(task_execution_start_date, "yyyy-MM-dd'T'HH:mm:ssXXX")) / 3600
+       ) AS turn_around_time_in_hours,
+       date_format(
+               from_utc_timestamp(task_execution_start_date, '+02:00'),
+               'HH:mm:ss'
+       ) AS bleeding_time
+FROM fact_lab_request_orders;
