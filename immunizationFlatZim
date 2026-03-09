@@ -1,0 +1,41 @@
+SELECT 
+  im.id,
+  im.language,
+  im.identifier,
+  im.status,
+  imsc.code AS status_reason_code,
+  imsc.display AS status_reason_display,
+  imsc.system AS status_reason_system,
+  imvc.code AS vaccineCode,
+  imvc.display AS Vaccine,
+  imvc.system AS vaccine_code_system,
+  im.patient.patientId AS patient_id,
+  im.patient.reference AS patient_reference,
+  im.encounter.encounterId AS encounter_id,
+  im.occurrence.dateTime AS occurence_dateTime,
+  im.recorded,
+  im.lotNumber,
+  location.locationId,
+  location.reference AS location_reference,
+  location.type AS location_type,
+  manufacturer.organizationId AS manufacturer_organizationId,
+  manufacturer.id AS manufacturer_id,
+  manufacturer.type AS manufacturer_type,
+  expirationDate,
+  ims.system AS site_system,
+  ims.code AS site_code,
+  ims.display AS site_display,
+  doseQuantity.value AS dose_quanity_value,
+  doseQuantity.comparator AS dose_quanity_comparator,
+  doseQuantity.unit AS dose_quantity_unit,
+  doseQuantity.system AS dose_quantity_system,
+  doseQuantity.code AS dose_quantity_code,
+  ip.doseNumber.positiveInt AS dose_number,
+  ip.doseNumber.string AS dose_number_string
+FROM immunization AS im
+LATERAL VIEW OUTER explode(im.statusReason.coding) AS imsc
+LATERAL VIEW OUTER explode(im.vaccineCode.coding) AS imvc
+LATERAL VIEW OUTER explode(im.site.coding) AS ims
+LATERAL VIEW OUTER explode(im.protocolApplied) AS ip
+LIMIT 10;
+
