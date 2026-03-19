@@ -1128,3 +1128,13 @@ SELECT task_id, date_sample_taken as impilo_date_time_sample_taken_UTC  ,from_ut
                'HH:mm:ss'
        ) AS bleeding_time
 FROM fact_lab_request_orders;
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Select * from fact_lab_request_orders
+where encounter_facility_id = 'ZW090A02' and cast(task_authored_on as date) >= '2026-03-09' and
+      cast(task_authored_on as date) <= '2026-03-13'  and test_type like '%Viral Load%'
+
+select * from task_flat_zim
+where task_id = 'eb01f3af-bb5e-499b-bd0d-c6a4a67ecb34' and labrequestno = '26078M' and task_code_display = 'Viral Load'
+
