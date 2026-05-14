@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/lab_reuest_order.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/lims-data_mart_queries.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/lims-queries.sql" dialect="SparkSQL" />
+    <file url="file://$PROJECT_DIR$/../lims-dwh-scripts/Fact_lab_request_orders_v2.sql" dialect="GenericSQL" />
+  </component>
+</project>

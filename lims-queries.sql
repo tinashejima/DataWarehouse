@@ -1138,3 +1138,76 @@ where encounter_facility_id = 'ZW090A02' and cast(task_authored_on as date) >= '
 select * from task_flat_zim
 where task_id = 'eb01f3af-bb5e-499b-bd0d-c6a4a67ecb34' and labrequestno = '26078M' and task_code_display = 'Viral Load'
 
+----------------------------------------------------------------------------------------------------------------------
+select count(distinct task_id) from fact_lab_request_orders
+WHERE encounter_facility_id = 'ZW090A17' AND lab = 'MPILO'
+  AND test_type LIKE '%Viral Load%'
+  and cast(task_authored_on as date) >= '2025-02-18' and task_authored_on <= '2026-03-18'
+
+
+
+select * from fact_lab_request_orders limit 6
+
+-----------------------------------------------------------------------------------------------------------------------
+
+select * from task
+         where CAST(authoredOn AS DATE) >= "2026-05-06"
+
+------------------------------------------------------------------------------------------------------------------------
+
+select * from fact_lab_request_orders
+WHERE  lab in ('MPILO','ST LUKES','UBH','MAPHISA','ESGODHINI','GWERU DISTRICT','MUTAWATAWA','MASVINGO', 'GWERU PROVINCIAL', 'THORNGROVE')
+  AND test_type LIKE '%Viral Load%'
+  and cast(task_authored_on as date) >= '2025-10-01' and task_authored_on <= '2026-03-31'
+and cast(task_authored_on as date) >= cast(task_execution_start_date as date)
+
+
+--LOCAL LAB
+----------------------------------------------------------------------------------------------------------------------
+
+select * from fact_lab_request_orders
+WHERE  lab_id = 001
+  AND test_type LIKE '%Viral Load%'
+  and cast(task_authored_on as date) >= '2025-10-01' and task_authored_on <= '2026-03-31'
+  and cast(task_authored_on as date) >= cast(task_execution_start_date as date)
+
+-------------------------------------------------------------------------------------------------------------------
+select * from fact_lab_request_orders
+WHERE encounter_facility_id = 'ZW070445'
+  AND test_type LIKE '%Viral Load%'
+  and cast(task_authored_on as date) >= '2025-11-12' and task_authored_on <= '2025-11-30'
+--------------------------------------------------------------------------------------------------------------------
+
+
+select * from fact_lab_request_orders
+WHERE encounter_facility_id = 'ZW090A17'
+  AND test_type LIKE '%Viral Load%'
+  and cast(task_authored_on as date) >= '2025-10-01' and task_authored_on <= '2025-10-31'
+
+---------------------------------------------------------------------------------------------------------------
+select * from fact_lab_request_orders
+WHERE  encounter_facility_id in ('ZW080535','ZW080583','ZW090A66','ZW080582','ZW030332','ZW090A07','ZW06050A','ZW060627',
+               'ZW090A14','ZW030339','ZW090A02','ZW03030A','ZW070445','ZW090A17','ZW050406','ZW090A12')
+  AND test_type LIKE '%Viral Load%' and task_status = "requested"
+  and cast(task_authored_on as date) >= '2025-02-18'
+
+-------------------------------------------------------------------------------------------------------------------
+
+select * from fact_lab_request_orders
+WHERE  encounter_facility_id in ('ZW080535','ZW080583','ZW090A66','ZW080582','ZW030332','ZW090A07','ZW06050A','ZW060627',
+                                 'ZW090A14','ZW030339','ZW090A02','ZW03030A','ZW070445','ZW090A17','ZW050406','ZW090A12')
+  AND test_type LIKE '%Viral Load%' and cast(task_authored_on as date) <> cast(task_execution_start_date as date)
+  and cast(task_authored_on as date) >= '2025-02-18'
+
+-----------------------------------------------------------------------------------------------------------------------
+select * from fact_lab_request_orders
+WHERE  encounter_facility = 'Lupane'
+  AND test_type LIKE '%Viral Load%'
+  and cast(task_authored_on as date) >= cast(date_site_activated as date)
+
+------------------------------------------------------------------------------------------------------------------------
+select * from fact_lab_request_orders
+WHERE  encounter_facility = 'Lupane'
+  AND test_type LIKE '%Viral Load%'
+  and cast(task_authored_on as date) >= '2026-04-01' and task_authored_on <= '2026-04-30'
+
